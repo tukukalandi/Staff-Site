@@ -1,7 +1,8 @@
+/// <reference types="vite/client" />
 import React, { useState } from "react";
 import { Upload, Save, File, Info } from "lucide-react";
 import { useAppStore } from "../store";
-import { db, storage, auth, handleFirestoreError, OperationType } from "../firebase";
+import { db, auth, storage } from "../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -53,11 +54,21 @@ export function AdminPortal() {
     try {
       let fileUrl = "#";
       let fileName = file ? file.name : "No file attached";
-      
+      let fileBase64 = "";
+      let mimeType = "";
+
       if (file) {
-        const fileRef = ref(storage, `documents/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(fileRef, file);
-        fileUrl = await getDownloadURL(snapshot.ref);
+        // Read file as Base64 format for Apps Script
+        fileBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]); // extract base64 data
+          };
+          reader.onerror = reject;
+        });
+        mimeType = file.type;
       }
 
       const docData = {
@@ -66,21 +77,22 @@ export function AdminPortal() {
         dateOfReceipt: formData.dateOfReceipt,
         description: formData.description,
         fileName,
-        fileUrl,
+        fileUrl, 
         uploadedAt: serverTimestamp(),
         userId: user.uid,
       };
 
-      await addDoc(collection(db, 'documents'), docData);
-
       const webhookUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL;
-      if (webhookUrl) {
+      
+      // Upload directly to Google Drive via Apps Script Webhook
+      if (webhookUrl && file && fileBase64) {
         try {
-          await fetch(webhookUrl, {
+          const response = await fetch(webhookUrl, {
             method: 'POST',
-            mode: 'no-cors',
+            // DO NOT use no-cors if we want to read the response!
+            // We use text/plain to bypass the OPTIONS preflight request which Apps Script struggles with.
             headers: {
-              'Content-Type': 'text/plain', // Avoids CORS preflight
+              'Content-Type': 'text/plain;charset=utf-8', 
             },
             body: JSON.stringify({
               letterNo: docData.letterNo,
@@ -88,18 +100,32 @@ export function AdminPortal() {
               dateOfReceipt: docData.dateOfReceipt,
               description: docData.description,
               fileName: docData.fileName,
-              fileUrl: docData.fileUrl,
+              fileBase64: fileBase64,
+              mimeType: mimeType,
               uploadedAt: new Date().toISOString(),
               userId: docData.userId
             })
           });
+          
+          const result = await response.json();
+          if (result.status === 'success' && result.fileUrl) {
+            docData.fileUrl = result.fileUrl; // Use the Google Drive URL returned by Apps Script
+          } else {
+            throw new Error(result.message || "Unknown error from Apps Script");
+          }
         } catch (webhookError) {
-          console.error("Failed to sync with Google Sheets:", webhookError);
+          console.error("Failed to upload to Google Drive:", webhookError);
+          throw new Error("Failed to upload document to Google Drive. Check webhook URL and Apps script logs.");
         }
+      } else if (!webhookUrl) {
+         throw new Error("Google Sheets Webhook URL is not configured. Please add VITE_GOOGLE_SHEETS_WEBHOOK_URL to your environment variables.");
       }
+
+      // Save to Firestore Database with the Google Drive link
+      await addDoc(collection(db, 'documents'), docData);
       
       setIsSubmitting(false);
-      setSuccessMessage("Document saved successfully! It is now visible in the Official Correspondance section.");
+      setSuccessMessage("Document uploaded directly to Google Drive and saved successfully!");
       
       // Reset form
       setFormData({
@@ -111,8 +137,7 @@ export function AdminPortal() {
       setFile(null);
     } catch (error) {
       setIsSubmitting(false);
-      setErrorMessage("Failed to upload document. See console for details.");
-      handleFirestoreError(error, OperationType.CREATE, 'documents');
+      setErrorMessage(error instanceof Error ? error.message : "Failed to upload document. See console for details.");
     }
   };
 
