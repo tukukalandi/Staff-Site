@@ -107,15 +107,30 @@ export function AdminPortal() {
             })
           });
           
-          const result = await response.json();
-          if (result.status === 'success' && result.fileUrl) {
-            docData.fileUrl = result.fileUrl; // Use the Google Drive URL returned by Apps Script
-          } else {
-            throw new Error(result.message || "Unknown error from Apps Script");
+          const responseText = await response.text();
+          let result;
+          try {
+            result = JSON.parse(responseText);
+          } catch (e) {
+            if (responseText.includes("Success") || responseText.includes("success")) {
+              console.warn("Webhook returned success but did not return a valid JSON object with a file url.", responseText);
+              // Since it succeeded but no URL was given, we will just proceed with the default "#" url.
+              // Note: To get the Google Drive link, the Apps script must return { "status": "success", "fileUrl": "..." }
+            } else {
+              throw new Error("Invalid response from webhook: " + responseText);
+            }
+          }
+
+          if (result) {
+            if (result.status === 'success' && result.fileUrl) {
+              docData.fileUrl = result.fileUrl; // Use the Google Drive URL returned by Apps Script
+            } else {
+              throw new Error(result.message || "Unknown error from Apps Script: " + responseText);
+            }
           }
         } catch (webhookError) {
           console.error("Failed to upload to Google Drive:", webhookError);
-          throw new Error("Failed to upload document to Google Drive. Check webhook URL and Apps script logs.");
+          throw new Error(`Failed to upload document to Google Drive: ${webhookError instanceof Error ? webhookError.message : String(webhookError)}`);
         }
       } else if (!webhookUrl) {
          throw new Error("Google Sheets Webhook URL is not configured. Please add VITE_GOOGLE_SHEETS_WEBHOOK_URL to your environment variables.");
