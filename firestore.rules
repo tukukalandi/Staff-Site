@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidDocument(data, isCreate) {
+      return data.keys().hasAll(['letterNo', 'branch', 'dateOfReceipt', 'description', 'fileName', 'fileUrl', 'uploadedAt', 'userId'])
+        && data.keys().size() == 8
+        && data.letterNo is string && data.letterNo.size() > 0 && data.letterNo.size() <= 200
+        && data.branch is string && data.branch.size() > 0 && data.branch.size() <= 200
+        && data.dateOfReceipt is string && data.dateOfReceipt.size() <= 50
+        && data.description is string && data.description.size() <= 10000
+        && data.fileName is string && data.fileName.size() <= 1000
+        && data.fileUrl is string && data.fileUrl.size() <= 2000
+        && data.userId is string && data.userId == request.auth.uid
+        && (isCreate ? data.uploadedAt == request.time : true);
+    }
+
+    // Documents Collection
+    match /documents/{documentId} {
+      // NOTE: In this spec, anyone can list/read documents if they are signed in (this is a staff portal).
+      // We are allowing all verified users to read all documents.
+      allow get: if isVerified() && isValidId(documentId);
+      allow list: if isVerified();
+
+      allow create: if isVerified()
+        && isValidId(documentId)
+        && isValidDocument(incoming(), true);
+
+      // We only allow users to edit their own documents, or they cannot edit at all. Let's make it so they can edit their own.
+      allow update: if isVerified()
+        && isValidId(documentId)
+        && existing().userId == request.auth.uid
+        && isValidDocument(incoming(), false)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['letterNo', 'branch', 'dateOfReceipt', 'description', 'fileName', 'fileUrl'])
+        && incoming().userId == existing().userId
+        && incoming().uploadedAt == existing().uploadedAt;
+
+      // Only the author can delete
+      allow delete: if isVerified()
+        && isValidId(documentId)
+        && existing().userId == request.auth.uid;
+    }
+  }
+}

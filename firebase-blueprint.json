@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "Document": {
+      "title": "Document",
+      "description": "An official correspondence document.",
+      "type": "object",
+      "properties": {
+        "letterNo": { "type": "string" },
+        "branch": { "type": "string" },
+        "dateOfReceipt": { "type": "string" },
+        "description": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "uploadedAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["letterNo", "branch", "dateOfReceipt", "description", "fileName", "fileUrl", "uploadedAt", "userId"]
+    }
+  },
+  "firestore": {
+    "/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/Document" },
+      "description": "Collection of official correspondence documents uploaded by staff."
+    }
+  }
+}
