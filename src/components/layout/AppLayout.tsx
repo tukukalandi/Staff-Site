@@ -1,9 +1,9 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Copy, Users, UserCircle, Grid, Settings, LayoutDashboard, FileText, Menu, LogOut } from "lucide-react";
+import { Copy, Users, UserCircle, Grid, Settings, LayoutDashboard, FileText, Menu, LogOut, LogIn } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "../../store";
-import { signOut } from "../../firebase";
+import { signOut, signIn } from "../../firebase";
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -19,6 +19,17 @@ export function AppLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const user = useAppStore(state => state.user);
+  const [signInError, setSignInError] = useState<string | null>(null);
+
+  const handleSignIn = async () => {
+    try {
+      setSignInError(null);
+      await signIn();
+    } catch (error) {
+      console.error('Sign-in error:', error);
+      setSignInError((error as Error).message);
+    }
+  };
 
   const getInitials = (name: string | null | undefined, email: string | null | undefined) => {
     if (name) return name.substring(0, 2).toUpperCase();
@@ -43,16 +54,31 @@ export function AppLayout() {
           </div>
         </div>
         <div className="flex items-center gap-4 md:gap-6">
-          <div className="text-right hidden md:block">
-            <p className="text-sm font-semibold text-gray-900">{user?.displayName || 'Staff Member'}</p>
-            <p className="text-xs text-gray-500">{user?.email}</p>
-          </div>
-          <div className="h-10 w-10 flex items-center justify-center rounded-full bg-red-100 border-2 border-white shadow-sm font-bold text-[#E31837]">
-            {getInitials(user?.displayName, user?.email)}
-          </div>
-          <button onClick={signOut} className="p-2 hover:bg-gray-100 rounded-md text-gray-500 ml-2" title="Sign Out">
-            <LogOut className="w-5 h-5" />
-          </button>
+          {user ? (
+            <>
+              <div className="text-right hidden md:block">
+                <p className="text-sm font-semibold text-gray-900">{user.displayName || 'Staff Member'}</p>
+                <p className="text-xs text-gray-500">{user.email}</p>
+              </div>
+              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-red-100 border-2 border-white shadow-sm font-bold text-[#E31837]">
+                {getInitials(user.displayName, user.email)}
+              </div>
+              <button onClick={signOut} className="p-2 hover:bg-gray-100 rounded-md text-gray-500 ml-2 relative group" title="Sign Out">
+                <LogOut className="w-5 h-5" />
+              </button>
+            </>
+          ) : (
+            <div className="flex flex-col items-end">
+              <button 
+                onClick={handleSignIn}
+                className="inline-flex items-center justify-center rounded-lg bg-[#E31837] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-red-700 transition-colors"
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In
+              </button>
+              {signInError && <p className="text-xs text-red-500 mt-1 absolute top-16 right-4 bg-white p-2 border border-red-200 rounded shadow-md z-50 max-w-xs">{signInError}</p>}
+            </div>
+          )}
         </div>
       </header>
 

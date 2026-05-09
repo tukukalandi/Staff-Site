@@ -74,37 +74,6 @@ export default function App() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-800">Loading...</div>;
   }
 
-  if (!auth.currentUser) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-gray-800">
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 max-w-md w-full text-center">
-          <div className="mb-6 flex justify-center">
-             <div className="w-16 h-16 bg-[#E31837] rounded-xl flex items-center justify-center text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-             </div>
-          </div>
-          <h1 className="text-2xl font-serif font-bold mb-4 text-[#E31837]">Dhenkanal RS SO</h1>
-          <p className="text-gray-500 mb-8">Please sign in to access the Staff Management Portal.</p>
-          <button 
-            onClick={handleSignIn}
-            className="w-full bg-[#E31837] text-white py-3 px-4 rounded-xl font-bold hover:bg-red-700 transition-colors"
-          >
-            Sign in with Google
-          </button>
-          {signInError && (
-            <p className="text-sm text-red-600 mt-4 font-medium bg-red-100 p-2 rounded-lg border border-red-200 break-words">
-              {signInError}
-            </p>
-          )}
-          <p className="text-xs text-[#E31837] mt-4 font-medium bg-red-50 p-2 rounded-lg text-left">
-            <strong>Note:</strong> If sign-in fails or popup is blocked, please open the app in a new tab using the ↗ icon in the top right.<br/><br/>
-            <strong>Vercel Deployment:</strong> If you are deploying this on Vercel, you must go to your Firebase Console ({`->`} Authentication {`->`} Settings {`->`} Authorized domains) and add your Vercel URL (e.g. <code>your-app.vercel.app</code>) to the list.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <BrowserRouter>
       <Routes>

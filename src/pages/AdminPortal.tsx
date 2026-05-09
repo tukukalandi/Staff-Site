@@ -165,6 +165,14 @@ export function AdminPortal() {
         </p>
       </div>
 
+      {!user && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-8">
+          <p className="text-red-700 text-sm font-medium">
+            You are currently viewing the portal in read-only mode. Please sign in using the button in the top right to upload documents.
+          </p>
+        </div>
+      )}
+
       <div className="bg-white shadow-sm border border-gray-200 rounded-2xl md:rounded-3xl overflow-hidden mb-8">
         <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
           <h3 className="text-lg font-bold text-gray-900">Upload New Correspondence</h3>
