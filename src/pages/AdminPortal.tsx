@@ -1,9 +1,10 @@
 /// <reference types="vite/client" />
 import React, { useState } from "react";
-import { Upload, Save, File } from "lucide-react";
+import { Upload, Save, File, Trash2, ExternalLink } from "lucide-react";
 import { useAppStore } from "../store";
-import { db, auth, storage } from "../firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db, auth, storage, OperationType, handleFirestoreError } from "../firebase";
+import { collection, addDoc, serverTimestamp, deleteDoc, doc } from "firebase/firestore";
+import { format } from "date-fns";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const BRANCHES = [
@@ -16,6 +17,7 @@ const BRANCHES = [
 
 export function AdminPortal() {
   const user = useAppStore((state) => state.user);
+  const documents = useAppStore((state) => state.documents);
   
   const [formData, setFormData] = useState({
     letterNo: "",
@@ -28,6 +30,26 @@ export function AdminPortal() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this document?")) return;
+    
+    setDeletingId(id);
+    try {
+      await deleteDoc(doc(db, "documents", id));
+      setSuccessMessage("Document deleted successfully!");
+      // Automatically clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      handleFirestoreError(error, OperationType.DELETE, "documents");
+      setErrorMessage("Failed to delete document.");
+      setTimeout(() => setErrorMessage(""), 3000);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -293,6 +315,75 @@ export function AdminPortal() {
             </button>
           </div>
         </form>
+      </div>
+
+      <div className="bg-white shadow-sm border border-gray-200 rounded-2xl md:rounded-3xl overflow-hidden mb-8">
+        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+          <h3 className="text-lg font-bold text-gray-900">Manage Documents</h3>
+        </div>
+        <div className="p-0">
+          {documents.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Letter No.</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Branch</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Date</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {documents.map((doc) => (
+                    <tr key={doc.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                        {doc.letterNo}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {doc.branch}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {format(new Date(doc.dateOfReceipt), 'dd MMM yyyy')}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          <a 
+                            href={doc.fileUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 transition-colors inline-flex items-center"
+                            title="View Document"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                          <button
+                            onClick={() => handleDelete(doc.id)}
+                            disabled={deletingId === doc.id || !user}
+                            className="text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
+                            title="Delete Document"
+                          >
+                            {deletingId === doc.id ? (
+                              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              No documents uploaded yet.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
