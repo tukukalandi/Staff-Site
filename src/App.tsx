@@ -14,6 +14,18 @@ export default function App() {
   const setDocuments = useAppStore(state => state.setDocuments);
   const [loading, setLoading] = useState(true);
 
+  const [signInError, setSignInError] = useState<string | null>(null);
+
+  const handleSignIn = async () => {
+    try {
+      setSignInError(null);
+      await signIn();
+    } catch (error) {
+      console.error('Sign-in error:', error);
+      setSignInError((error as Error).message);
+    }
+  };
+
   useEffect(() => {
     let unsubscribeDocs: (() => void) | undefined;
 
@@ -74,13 +86,19 @@ export default function App() {
           <h1 className="text-2xl font-serif font-bold mb-4 text-[#E31837]">Dhenkanal RS SO</h1>
           <p className="text-gray-500 mb-8">Please sign in to access the Staff Management Portal.</p>
           <button 
-            onClick={signIn}
+            onClick={handleSignIn}
             className="w-full bg-[#E31837] text-white py-3 px-4 rounded-xl font-bold hover:bg-red-700 transition-colors"
           >
             Sign in with Google
           </button>
-          <p className="text-xs text-[#E31837] mt-4 font-medium bg-red-50 p-2 rounded-lg">
-            Note: If sign-in fails or popup is blocked, please open the app in a new tab using the ↗ icon in the top right.
+          {signInError && (
+            <p className="text-sm text-red-600 mt-4 font-medium bg-red-100 p-2 rounded-lg border border-red-200 break-words">
+              {signInError}
+            </p>
+          )}
+          <p className="text-xs text-[#E31837] mt-4 font-medium bg-red-50 p-2 rounded-lg text-left">
+            <strong>Note:</strong> If sign-in fails or popup is blocked, please open the app in a new tab using the ↗ icon in the top right.<br/><br/>
+            <strong>Vercel Deployment:</strong> If you are deploying this on Vercel, you must go to your Firebase Console ({`->`} Authentication {`->`} Settings {`->`} Authorized domains) and add your Vercel URL (e.g. <code>your-app.vercel.app</code>) to the list.
           </p>
         </div>
       </div>
