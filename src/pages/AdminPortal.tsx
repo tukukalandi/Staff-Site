@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import React, { useState } from "react";
-import { Upload, Save, File, Info } from "lucide-react";
+import { Upload, Save, File } from "lucide-react";
 import { useAppStore } from "../store";
 import { db, auth, storage } from "../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -148,22 +148,6 @@ export function AdminPortal() {
         <p className="text-gray-500">
           Upload official documents to the portal.
         </p>
-      </div>
-
-      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-8">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <Info className="h-5 w-5 text-yellow-600" />
-          </div>
-          <div className="ml-3">
-            <p className="text-sm text-yellow-800">
-              <strong className="text-yellow-900 block mb-1">Notice on Google Drive Integration:</strong> 
-              Saving directly to Google Drive from a web browser requires setting up a Google Cloud Project with OAuth consent, which isn't possible out-of-the-box in this preview. 
-              <br/><br/>
-              Currently, documents are saved securely to our built-in Cloud Storage (Firebase), which provides the exact same persistent file-storage functionality. If you strictly require Google Drive, you can link the resulting URL via a Zapier/Make webhook later!
-            </p>
-          </div>
-        </div>
       </div>
 
       <div className="bg-white shadow-sm border border-gray-200 rounded-2xl md:rounded-3xl overflow-hidden mb-8">
