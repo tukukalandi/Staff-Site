@@ -80,17 +80,31 @@ export function AdminPortal() {
       let mimeType = "";
 
       if (file) {
-        // Read file as Base64 format for Apps Script
-        fileBase64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]); // extract base64 data
-          };
-          reader.onerror = reject;
-        });
-        mimeType = file.type;
+        // Upload to our custom backend server
+        const formDataPayload = new FormData();
+        formDataPayload.append("file", file);
+        
+        try {
+          const uploadResponse = await fetch("/api/upload", {
+            method: "POST",
+            body: formDataPayload,
+          });
+          
+          if (!uploadResponse.ok) {
+            const errorResult = await uploadResponse.json().catch(() => ({ error: uploadResponse.statusText }));
+            throw new Error(errorResult.error || "Upload failed");
+          }
+          
+          const uploadResult = await uploadResponse.json();
+          fileUrl = uploadResult.webViewLink || uploadResult.webContentLink || "#";
+          
+        } catch (uploadObjError) {
+          console.error("Backend upload failed, attempting fallback to Firebase Storage:", uploadObjError);
+          // Fallback to Firebase Storage if backend fails or isn't configured
+          const fileRef = ref(storage, `documents/${Date.now()}_${file.name}`);
+          const snapshot = await uploadBytes(fileRef, file);
+          fileUrl = await getDownloadURL(snapshot.ref);
+        }
       }
 
       const docData = {
@@ -104,65 +118,11 @@ export function AdminPortal() {
         userId: user.uid,
       };
 
-      const webhookUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL;
-      
-      // Upload directly to Google Drive via Apps Script Webhook
-      if (webhookUrl && file && fileBase64) {
-        try {
-          const response = await fetch(webhookUrl, {
-            method: 'POST',
-            // DO NOT use no-cors if we want to read the response!
-            // We use text/plain to bypass the OPTIONS preflight request which Apps Script struggles with.
-            headers: {
-              'Content-Type': 'text/plain;charset=utf-8', 
-            },
-            body: JSON.stringify({
-              letterNo: docData.letterNo,
-              branch: docData.branch,
-              dateOfReceipt: docData.dateOfReceipt,
-              description: docData.description,
-              fileName: docData.fileName,
-              fileBase64: fileBase64,
-              mimeType: mimeType,
-              uploadedAt: new Date().toISOString(),
-              userId: docData.userId
-            })
-          });
-          
-          const responseText = await response.text();
-          let result;
-          try {
-            result = JSON.parse(responseText);
-          } catch (e) {
-            if (responseText.includes("Success") || responseText.includes("success")) {
-              console.warn("Webhook returned success but did not return a valid JSON object with a file url.", responseText);
-              // Since it succeeded but no URL was given, we will just proceed with the default "#" url.
-              // Note: To get the Google Drive link, the Apps script must return { "status": "success", "fileUrl": "..." }
-            } else {
-              throw new Error("Invalid response from webhook: " + responseText);
-            }
-          }
-
-          if (result) {
-            if (result.status === 'success' && result.fileUrl) {
-              docData.fileUrl = result.fileUrl; // Use the Google Drive URL returned by Apps Script
-            } else {
-              throw new Error(result.message || "Unknown error from Apps Script: " + responseText);
-            }
-          }
-        } catch (webhookError) {
-          console.error("Failed to upload to Google Drive:", webhookError);
-          throw new Error(`Failed to upload document to Google Drive: ${webhookError instanceof Error ? webhookError.message : String(webhookError)}`);
-        }
-      } else if (!webhookUrl) {
-         throw new Error("Google Sheets Webhook URL is not configured. Please add VITE_GOOGLE_SHEETS_WEBHOOK_URL to your environment variables.");
-      }
-
-      // Save to Firestore Database with the Google Drive link
+      // Save to Firestore Database
       await addDoc(collection(db, 'documents'), docData);
       
       setIsSubmitting(false);
-      setSuccessMessage("Document uploaded directly to Google Drive and saved successfully!");
+      setSuccessMessage("Document uploaded and saved successfully!");
       
       // Reset form
       setFormData({
